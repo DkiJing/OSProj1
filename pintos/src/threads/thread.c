@@ -182,6 +182,7 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  t->block_time = 0;  // Init block time
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -294,6 +295,32 @@ thread_exit (void)
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
+}
+
+/* Put the current thread to sleep, and set the block_time of thread */
+void
+thread_sleep(int64_t ticks)
+{
+  if(ticks <= 0) return;
+  struct thread *cur = thread_current();
+  enum intr_level old_level;
+  
+  ASSERT(intr_get_level() == INTR_ON);
+
+  old_level = intr_disable();
+  cur->block_time = ticks;  
+  thread_block();
+  intr_set_level(old_level);
+}
+
+/* Check the block_time of thread, once it equals zero, wake up this thread */
+void
+blocked_thread_check(struct thread *t, void *aux)
+{
+  if(t->status == THREAD_BLOCKED && t->block_time > 0){
+    t->block_time--;
+    if(t->block_time == 0) thread_unblock(t);
+  }
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
