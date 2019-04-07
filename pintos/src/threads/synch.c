@@ -181,6 +181,13 @@ lock_init (struct lock *lock)
   sema_init (&lock->semaphore, 1);
 }
 
+/* Compare max priority of two element */
+bool
+lock_cmp_priority(struct list_elem *e1, struct list_elem *e2, void *aux)
+{
+  return list_entry(e1, struct lock, elem)->max_priority > list_entry(e2, struct lock, elem)->max_priority;
+}
+
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
    thread.
@@ -195,9 +202,32 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+  
+  struct thread *cur = thread_current();
+  enum intr_level old_level;
+  struct lock *l;  
+  
+  if(lock->holder != NULL && !thread_mlfqs){
+    cur->lock_waiting = lock;
+    l = lock;
+    while(l && cur->priority > l->max_priority){
+      l->max_priority = cur->priority;
+      thread_donate_priority(l->holder);
+      l = l->holder->lock_waiting;
+    }
+  }
 
   sema_down (&lock->semaphore);
+  
+  old_level = intr_disable();
+  cur = thread_current();
+  if(!thread_mlfqs){
+    cur->lock_waiting = NULL;
+    lock->max_priority = cur->priority;
+    thread_hold_lock(lock);
+  }
   lock->holder = thread_current ();
+  intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -230,7 +260,8 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-
+  
+  if(!thread_mlfqs) thread_remove_lock(lock);
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -245,7 +276,7 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {

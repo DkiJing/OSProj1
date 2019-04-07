@@ -102,6 +102,9 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     int64_t block_time;                 /* Time of thread being blocked  */
+    int base_priority;                  /* Base priority */
+    struct list locks;                  /* Set of locks held by this thread */
+    struct lock *lock_waiting;          /* lock waited by this thread */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -129,6 +132,11 @@ void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 void thread_sleep(int64_t ticks);
 void blocked_thread_check(struct thread *t, void *aux);
+bool thread_cmp_priority(struct list_elem *e1, struct list_elem *e2, void *aux);
+void thread_donate_priority(struct thread *t);
+void thread_hold_lock(struct lock *lock);
+void thread_remove_lock(struct lock *lock);
+void thread_update_priority(struct thread *t);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
