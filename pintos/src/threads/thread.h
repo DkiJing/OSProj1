@@ -25,6 +25,11 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Thread niceness */
+#define NICE_MIN -20                    /* Lowest niceness */
+#define NICE_DEFAULT 0                  /* Default niceness */
+#define NICE_MAX 20                     /* Highest niceness */
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -105,6 +110,8 @@ struct thread
     int base_priority;                  /* Base priority */
     struct list locks;                  /* Set of locks held by this thread */
     struct lock *lock_waiting;          /* lock waited by this thread */
+    int nice;                           /* Thread nice */
+    int recent_cpu;                     /* Thread recent cpu */
   };
 
 /* If false (default), use round-robin scheduler.
@@ -137,6 +144,10 @@ void thread_donate_priority(struct thread *t);
 void thread_hold_lock(struct lock *lock);
 void thread_remove_lock(struct lock *lock);
 void thread_update_priority(struct thread *t);
+void thread_mlfqs_update_cpu(void);
+void thread_mlfqs_update_load_cpu(void);
+void thread_mlfqs_update_priority(struct thread *t);
+
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

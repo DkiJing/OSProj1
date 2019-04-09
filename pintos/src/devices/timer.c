@@ -166,7 +166,17 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  struct thread *cur = thread_current();
+  enum intr_level old_level = intr_disable();
   ticks++;
+  if(thread_mlfqs){
+    thread_mlfqs_update_cpu();
+    if(ticks % TIMER_FREQ == 0)
+      thread_mlfqs_update_load_cpu();
+    else if(ticks % 4 == 0)
+      thread_mlfqs_update_priority(cur);  
+  }
+  intr_set_level(old_level);
   thread_tick ();
   thread_foreach(blocked_thread_check, NULL);
 }
